@@ -76,12 +76,14 @@ export default function MobileSidebar({ id, open, pathname, onClose }: MobileSid
         </nav>
 
         <div className="mobile-nav-actions">
-          <a className="mobile-nav-login" href={authLinks.login.href} onClick={onClose}>
-            {authLinks.login.label}
-          </a>
-          <button className="mobile-nav-register" type="button" onClick={onClose}>
+          <a
+            className="mobile-nav-register"
+            href={authLinks.register.href}
+            onClick={onClose}
+            style={{ textDecoration: 'none', textAlign: 'center' }}
+          >
             {authLinks.register.label}
-          </button>
+          </a>
         </div>
       </aside>
     </div>

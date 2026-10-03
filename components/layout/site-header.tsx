@@ -36,8 +36,9 @@ export default function SiteHeader() {
           ))}
         </nav>
         <div className="topbar-actions">
-          <a className="link-login" href={authLinks.login.href}>{authLinks.login.label}</a>
-          <button className="btn-register" type="button">{authLinks.register.label}</button>
+          <a className="btn-register" href={authLinks.register.href} style={{ textDecoration: 'none' }}>
+            {authLinks.register.label}
+          </a>
         </div>
         <button
           ref={menuButtonRef}

@@ -10,15 +10,13 @@ export const primaryNavLinks: NavLink[] = [
   { label: 'Courses', href: '/courses', activePath: '/courses' },
   { label: 'Categories', href: '/categories', activePath: '/categories' },
   { label: 'Bundles', href: '/bundles', activePath: '/bundles' },
-  { label: 'Career', href: '/' },
   { label: 'Premium', href: '/premium', activePath: '/premium' },
-  { label: 'Blog', href: '/' },
   { label: 'About', href: '/' },
 ]
 
 export const authLinks = {
-  login: { label: 'Login', href: '/' },
-  register: { label: 'Register' },
+  login: { label: 'Login', href: '/login' },
+  register: { label: 'Login', href: '/login' },
 }
 
 export function isNavLinkActive(link: NavLink, pathname: string) {
