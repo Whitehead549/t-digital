@@ -24,6 +24,17 @@ export type PlanRecord = Timestamps & Media & { id: number; name: string; price:
 export type OrderRecord = Timestamps & { id: number; customerName: string; customerEmail: string; itemType: string; itemName: string; amount: number; status: string }
 export type ReviewRecord = Timestamps & { id: number; courseId: string; reviewerName: string; avatar: string; rating: number; comment: string; status: string }
 export type TestimonialRecord = Timestamps & { id: number; name: string; role: string; avatar: string; quote: string; rating: number; featured: boolean; sortOrder: number }
+export type CertificateRecord = Timestamps & {
+  id: number
+  code: string
+  studentName: string
+  studentEmail: string
+  courseTitle: string
+  instructor: string
+  issuedOn: string
+  image: string
+  status: string
+}
 
 export type Store = {
   categories: CategoryRecord[]
@@ -33,6 +44,7 @@ export type Store = {
   orders: OrderRecord[]
   reviews: ReviewRecord[]
   testimonials: TestimonialRecord[]
+  certificates: CertificateRecord[]
 }
 
 export const toSlug = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80)
@@ -128,12 +140,36 @@ function createSeed(): Store {
     ] as const
   ).map(([customerName, customerEmail, itemType, itemName, amount, status], index) => ({ id: index + 1, customerName, customerEmail, itemType, itemName, amount, status, ...stamp(index) }))
 
-  return { categories, courses, bundles, premiumPlans, orders, reviews, testimonials }
+  return { categories, courses, bundles, premiumPlans, orders, reviews, testimonials, certificates: seedCertificates() }
+}
+
+function seedCertificates(): CertificateRecord[] {
+  return (
+    [
+      ['TRV-FD-20481', 'Frontend Development', 'Qamardeen Abdul', '2026-06-14'],
+      ['TRV-RJ-19302', 'React & Modern JavaScript', 'Qamardeen Abdul', '2026-06-12'],
+      ['TRV-PE-17755', 'Prompt Engineering Masterclass', 'Rifdhat Tolani', '2026-05-28'],
+      ['TRV-FB-15020', 'Start a Profitable Freelancing Business', 'Hammed Oladipo', '2026-04-19'],
+    ] as const
+  ).map(([code, courseTitle, instructor, issuedOn], index) => ({
+    id: index + 1,
+    code,
+    studentName: 'Alex Morgan',
+    studentEmail: 'alex.morgan@torvan.com',
+    courseTitle,
+    instructor,
+    issuedOn,
+    image: '',
+    status: 'issued',
+    ...stamp(5 - index),
+  }))
 }
 
 // Kept on globalThis so admin edits survive hot reloads and are shared across requests in the same server process.
 const globalForStore = globalThis as unknown as { adminStore?: Store }
 export const store: Store = globalForStore.adminStore ?? (globalForStore.adminStore = createSeed())
+// Stores created before certificates existed (kept alive on globalThis) need the collection backfilled.
+store.certificates ??= seedCertificates()
 
 export function nextId(rows: { id: number }[]) {
   return rows.reduce((max, row) => Math.max(max, row.id), 0) + 1

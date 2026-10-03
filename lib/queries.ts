@@ -1,6 +1,7 @@
 import { store, type CourseRecord } from '@/lib/admin/store'
 import type { Course } from '@/lib/data/courses'
 import type { Category } from '@/lib/data/categories'
+import type { Certificate } from '@/lib/data/dashboard'
 
 export function formatMoney(value: string | number) {
   const amount = Number(value) || 0
@@ -35,6 +36,21 @@ export async function getPublishedCourses() {
 export async function getCourseById(courseId: string) {
   const row = store.courses.find((course) => course.id === courseId && course.status === 'published')
   return row ? toCourse(row, categoryName(row.categoryId)) : undefined
+}
+
+export async function getStudentCertificates(email: string): Promise<Certificate[]> {
+  const owner = email.trim().toLowerCase()
+  return store.certificates
+    .filter((row) => row.status === 'issued' && row.studentEmail.toLowerCase() === owner)
+    .sort((a, b) => b.issuedOn.localeCompare(a.issuedOn))
+    .map((row) => ({
+      id: row.code,
+      course: row.courseTitle,
+      instructor: row.instructor || 'TORVAN Academy',
+      completedOn: new Date(`${row.issuedOn}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      verified: true,
+      image: row.image,
+    }))
 }
 
 export async function getCategoriesWithCounts(): Promise<Category[]> {

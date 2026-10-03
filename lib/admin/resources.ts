@@ -1,4 +1,4 @@
-export const resourceKeys = ['courses', 'categories', 'bundles', 'premium', 'orders', 'reviews', 'testimonials'] as const
+export const resourceKeys = ['courses', 'categories', 'bundles', 'premium', 'orders', 'certificates', 'reviews', 'testimonials'] as const
 export type ResourceKey = (typeof resourceKeys)[number]
 
 export function isResourceKey(value: string): value is ResourceKey {
@@ -19,3 +19,4 @@ export const orderStatuses = ['pending', 'paid', 'refunded', 'cancelled'] as con
 export const orderItemTypes = ['course', 'bundle', 'premium'] as const
 export const reviewStatuses = ['approved', 'pending', 'hidden'] as const
 export const planSuffixes = ['/month', '/year', 'one-time'] as const
+export const certificateStatuses = ['issued', 'revoked'] as const

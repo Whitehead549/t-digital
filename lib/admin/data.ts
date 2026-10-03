@@ -23,6 +23,8 @@ export async function getAdminRows(resource: ResourceKey): Promise<AdminRow[]> {
       return [...store.premiumPlans].sort((a, b) => bySortOrder(a, b) || a.id - b.id).map((row) => withMedia(withDates(row)))
     case 'orders':
       return [...store.orders].sort(byNewest).map(withDates)
+    case 'certificates':
+      return [...store.certificates].sort(byNewest).map(withDates)
     case 'reviews':
       return [...store.reviews].sort(byNewest).map(withDates)
     case 'testimonials':

@@ -1,4 +1,4 @@
-import { Archive, BookOpen, Crown, FolderTree, LayoutDashboard, MessageSquareQuote, ShoppingBag, Star, type LucideIcon } from 'lucide-react'
+import { Archive, Award, BookOpen, Crown, FolderTree, LayoutDashboard, MessageSquareQuote, ShoppingBag, Star, type LucideIcon } from 'lucide-react'
 
 export type AdminNavItem = { label: string; href: string; icon: LucideIcon }
 
@@ -14,6 +14,7 @@ export const adminNavGroups: { label: string; items: AdminNavItem[] }[] = [
     ],
   },
   { label: 'Sales', items: [{ label: 'Orders', href: '/admin/orders', icon: ShoppingBag }] },
+  { label: 'Students', items: [{ label: 'Certificates', href: '/admin/certificates', icon: Award }] },
   {
     label: 'Community',
     items: [

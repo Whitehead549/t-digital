@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { nextId, store, toSlug } from '@/lib/admin/store'
 import {
+  certificateStatuses,
   courseTones,
   isResourceKey,
   orderItemTypes,
@@ -183,6 +184,28 @@ export async function saveRecord(resource: string, id: string | number | null, v
         upsert(store.orders, id ? numericId(id) : null, data, () => nextId(store.orders))
         break
       }
+      case 'certificates': {
+        const email = text(values, 'studentEmail', 'Student email', { max: 200 }).toLowerCase()
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ValidationError('Enter a valid student email.')
+        const issuedOn = text(values, 'issuedOn', 'Issue date', { max: 10 })
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(issuedOn) || Number.isNaN(Date.parse(issuedOn))) throw new ValidationError('Enter the issue date as YYYY-MM-DD.')
+        const image = safeUrl(text(values, 'image', 'Certificate file', { max: 200000, required: false }), 200000)
+        const recordId = id ? numericId(id) : null
+        const code = text(values, 'code', 'Certificate ID', { max: 40 }).toUpperCase()
+        if (store.certificates.some((cert) => cert.code === code && cert.id !== recordId)) throw new ValidationError('That certificate ID is already in use.')
+        const data = {
+          code,
+          studentName: text(values, 'studentName', 'Student name', { max: 120 }),
+          studentEmail: email,
+          courseTitle: text(values, 'courseTitle', 'Course', { max: 200 }),
+          instructor: text(values, 'instructor', 'Instructor', { max: 100, required: false }),
+          issuedOn,
+          image,
+          status: choice(values, 'status', 'Status', certificateStatuses),
+        }
+        upsert(store.certificates, recordId, data, () => nextId(store.certificates))
+        break
+      }
       case 'reviews': {
         const courseId = text(values, 'courseId', 'Course', { max: 100 })
         if (!store.courses.some((course) => course.id === courseId)) throw new ValidationError('Choose a valid course.')
@@ -247,6 +270,9 @@ export async function deleteRecord(resource: string, id: string | number): Promi
         break
       case 'orders':
         removeById(store.orders, numericId(id))
+        break
+      case 'certificates':
+        removeById(store.certificates, numericId(id))
         break
       case 'reviews':
         removeById(store.reviews, numericId(id))

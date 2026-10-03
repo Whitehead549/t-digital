@@ -3,6 +3,7 @@ import { Film } from 'lucide-react'
 import { formatDuration } from '@/components/admin/media-upload'
 import {
   getVideos,
+  certificateStatuses,
   courseTones,
   orderItemTypes,
   orderStatuses,
@@ -223,6 +224,32 @@ export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
       { label: 'Amount', render: (row) => <b>{money(row.amount)}</b> },
       { label: 'Status', render: (row) => <StatusBadge value={row.status} /> },
       { label: 'Date', render: (row) => <span className="admin-updated">{formatDate(row.createdAt)}</span> },
+    ],
+  },
+  certificates: {
+    title: 'Certificates',
+    singular: 'certificate',
+    description: 'Upload certificates for learners. Issued certificates appear instantly on the student dashboard.',
+    searchFields: ['code', 'studentName', 'studentEmail', 'courseTitle'],
+    statusField: 'status',
+    statusOptions: certificateStatuses,
+    defaults: { code: '', studentName: '', studentEmail: '', courseTitle: '', instructor: '', issuedOn: new Date().toISOString().slice(0, 10), image: '', status: 'issued' },
+    fields: [
+      { name: 'studentName', label: 'Student name', type: 'text', required: true, half: true },
+      { name: 'studentEmail', label: 'Student email', type: 'email', required: true, half: true, hint: 'Must match the email the student signs in with.' },
+      { name: 'courseTitle', label: 'Course', type: 'text', required: true },
+      { name: 'instructor', label: 'Instructor', type: 'text', half: true },
+      { name: 'code', label: 'Certificate ID', type: 'text', required: true, half: true, hint: 'e.g. TRV-FD-20481' },
+      { name: 'issuedOn', label: 'Issue date (YYYY-MM-DD)', type: 'text', required: true, half: true },
+      { name: 'status', label: 'Status', type: 'select', options: certificateStatuses, half: true },
+      imageField('Certificate file', 'Upload the certificate as an image (PNG or JPG). Students can view and download it.'),
+    ],
+    columns: [
+      { label: 'Student', render: (row) => <span className="admin-course-cell"><span><b>{row.studentName}</b><small>{row.studentEmail}</small></span></span> },
+      { label: 'Course', render: (row) => <span className="admin-clamp">{row.courseTitle}</span> },
+      { label: 'Certificate ID', render: (row) => <span className="admin-mono">{row.code}</span> },
+      { label: 'Issued', render: (row) => <span className="admin-updated">{formatDate(`${row.issuedOn}T00:00:00`)}</span> },
+      { label: 'Status', render: (row) => <StatusBadge value={row.status} /> },
     ],
   },
   reviews: {
