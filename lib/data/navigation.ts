@@ -11,7 +11,7 @@ export const primaryNavLinks: NavLink[] = [
   { label: 'Categories', href: '/categories', activePath: '/categories' },
   { label: 'Bundles', href: '/bundles', activePath: '/bundles' },
   { label: 'Premium', href: '/premium', activePath: '/premium' },
-  { label: 'About', href: '/' },
+  { label: 'Dashboard', href: '/dashboard', activePath: '/dashboard' },
 ]
 
 export const authLinks = {

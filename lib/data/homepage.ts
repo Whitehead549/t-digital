@@ -28,7 +28,7 @@ export const whyLearnFeatures: Feature[] = [
 ]
 
 export const footerColumns: FooterColumn[] = [
-  { title: 'Quick Links', links: ['Home', 'Courses', 'Categories', 'Bundles', 'Career'] },
+  { title: 'Quick Links', links: ['Home', 'Courses', 'Categories', 'Bundles', 'About', 'Career'] },
   { title: 'Support', links: ['Help Center', 'Contact Us', 'FAQ', 'Terms & Privacy'] },
 ]
 

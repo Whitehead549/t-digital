@@ -1,9 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { eq, sql } from 'drizzle-orm'
-import { db } from '@/lib/db'
-import * as t from '@/lib/db/schema'
+import { nextId, store, toSlug } from '@/lib/admin/store'
 import {
   courseTones,
   isResourceKey,
@@ -43,33 +41,35 @@ function choice<T extends string>(values: Values, key: string, label: string, op
 
 const bool = (values: Values, key: string) => values[key] === true
 const list = (values: Values, key: string) => (Array.isArray(values[key]) ? (values[key] as unknown[]).filter((item): item is string => typeof item === 'string').slice(0, 30) : [])
-const toSlug = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80)
-const money = (value: number) => value.toFixed(2)
+const money = (value: number) => Math.round(value * 100) / 100
 
-async function uniqueId(table: typeof t.courses | typeof t.categories, base: string) {
+function uniqueId(rows: { id: string }[], base: string) {
   const root = toSlug(base) || 'item'
   let candidate = root
-  for (let suffix = 2; ; suffix++) {
-    const [existing] = await db.select({ id: table.id }).from(table).where(eq(table.id, candidate)).limit(1)
-    if (!existing) return candidate
-    candidate = `${root}-${suffix}`
-  }
-}
-
-async function assertCategory(categoryId: string) {
-  const [category] = await db.select({ id: t.categories.id }).from(t.categories).where(eq(t.categories.id, categoryId)).limit(1)
-  if (!category) throw new ValidationError('Choose a valid category.')
-}
-
-async function assertCourse(courseId: string) {
-  const [course] = await db.select({ id: t.courses.id }).from(t.courses).where(eq(t.courses.id, courseId)).limit(1)
-  if (!course) throw new ValidationError('Choose a valid course.')
+  for (let suffix = 2; rows.some((row) => row.id === candidate); suffix++) candidate = `${root}-${suffix}`
+  return candidate
 }
 
 function numericId(id: string | number | null) {
   const value = Number(id)
   if (!Number.isInteger(value) || value <= 0) throw new ValidationError('Invalid record id.')
   return value
+}
+
+function upsert<T extends { id: string | number; createdAt: Date; updatedAt: Date }>(rows: T[], id: T['id'] | null, data: Omit<T, 'id' | 'createdAt' | 'updatedAt'>, newId: () => T['id']) {
+  const now = new Date()
+  if (id !== null) {
+    const index = rows.findIndex((row) => row.id === id)
+    if (index === -1) throw new ValidationError('That record no longer exists.')
+    rows[index] = { ...rows[index], ...data, updatedAt: now }
+  } else {
+    rows.push({ ...data, id: newId(), createdAt: now, updatedAt: now } as T)
+  }
+}
+
+function removeById<T extends { id: string | number }>(rows: T[], id: T['id']) {
+  const index = rows.findIndex((row) => row.id === id)
+  if (index !== -1) rows.splice(index, 1)
 }
 
 function refresh() {
@@ -79,27 +79,24 @@ function refresh() {
 export async function saveRecord(resource: string, id: string | number | null, values: Values): Promise<ActionResult> {
   try {
     if (!isResourceKey(resource)) throw new ValidationError('Unknown resource.')
-    const now = new Date()
 
     switch (resource) {
       case 'courses': {
         const categoryId = text(values, 'categoryId', 'Category', { max: 100 })
-        await assertCategory(categoryId)
+        if (!store.categories.some((category) => category.id === categoryId)) throw new ValidationError('Choose a valid category.')
         const data = {
           title: text(values, 'title', 'Title', { max: 160 }),
           categoryId,
           author: text(values, 'author', 'Instructor', { max: 100 }),
           price: money(num(values, 'price', 'Price')),
           oldPrice: money(num(values, 'oldPrice', 'Original price')),
-          rating: num(values, 'rating', 'Rating', { max: 5 }).toFixed(1),
+          rating: Math.round(num(values, 'rating', 'Rating', { max: 5 }) * 10) / 10,
           students: num(values, 'students', 'Students', { max: 10000000, integer: true }),
           image: text(values, 'image', 'Thumbnail URL', { max: 1000, required: false }),
           tone: choice(values, 'tone', 'Tone', courseTones),
           status: choice(values, 'status', 'Status', publishStatuses),
-          updatedAt: now,
         }
-        if (id) await db.update(t.courses).set(data).where(eq(t.courses.id, String(id)))
-        else await db.insert(t.courses).values({ ...data, id: await uniqueId(t.courses, data.title) })
+        upsert(store.courses, id ? String(id) : null, data, () => uniqueId(store.courses, data.title))
         break
       }
       case 'categories': {
@@ -108,14 +105,12 @@ export async function saveRecord(resource: string, id: string | number | null, v
           description: text(values, 'description', 'Description', { max: 300, required: false }),
           image: text(values, 'image', 'Image URL', { max: 1000, required: false }) || '/images/hero-learner.png',
           sortOrder: num(values, 'sortOrder', 'Sort order', { max: 1000, integer: true }),
-          updatedAt: now,
         }
-        if (id) await db.update(t.categories).set(data).where(eq(t.categories.id, String(id)))
-        else await db.insert(t.categories).values({ ...data, id: await uniqueId(t.categories, data.name) })
+        upsert(store.categories, id ? String(id) : null, data, () => uniqueId(store.categories, data.name))
         break
       }
       case 'bundles': {
-        const courseIds = list(values, 'courseIds')
+        const courseIds = list(values, 'courseIds').filter((courseId) => store.courses.some((course) => course.id === courseId))
         if (courseIds.length === 0) throw new ValidationError('Pick at least one course for the bundle.')
         const data = {
           name: text(values, 'name', 'Name', { max: 120 }),
@@ -125,10 +120,8 @@ export async function saveRecord(resource: string, id: string | number | null, v
           courseIds,
           status: choice(values, 'status', 'Status', publishStatuses),
           sortOrder: num(values, 'sortOrder', 'Sort order', { max: 1000, integer: true }),
-          updatedAt: now,
         }
-        if (id) await db.update(t.bundles).set(data).where(eq(t.bundles.id, numericId(id)))
-        else await db.insert(t.bundles).values(data)
+        upsert(store.bundles, id ? numericId(id) : null, data, () => nextId(store.bundles))
         break
       }
       case 'premium': {
@@ -141,10 +134,8 @@ export async function saveRecord(resource: string, id: string | number | null, v
           featured: bool(values, 'featured'),
           active: bool(values, 'active'),
           sortOrder: num(values, 'sortOrder', 'Sort order', { max: 1000, integer: true }),
-          updatedAt: now,
         }
-        if (id) await db.update(t.premiumPlans).set(data).where(eq(t.premiumPlans.id, numericId(id)))
-        else await db.insert(t.premiumPlans).values(data)
+        upsert(store.premiumPlans, id ? numericId(id) : null, data, () => nextId(store.premiumPlans))
         break
       }
       case 'orders': {
@@ -157,25 +148,21 @@ export async function saveRecord(resource: string, id: string | number | null, v
           itemName: text(values, 'itemName', 'Item', { max: 200 }),
           amount: money(num(values, 'amount', 'Amount')),
           status: choice(values, 'status', 'Status', orderStatuses),
-          updatedAt: now,
         }
-        if (id) await db.update(t.orders).set(data).where(eq(t.orders.id, numericId(id)))
-        else await db.insert(t.orders).values(data)
+        upsert(store.orders, id ? numericId(id) : null, data, () => nextId(store.orders))
         break
       }
       case 'reviews': {
         const courseId = text(values, 'courseId', 'Course', { max: 100 })
-        await assertCourse(courseId)
+        if (!store.courses.some((course) => course.id === courseId)) throw new ValidationError('Choose a valid course.')
         const data = {
           courseId,
           reviewerName: text(values, 'reviewerName', 'Reviewer name', { max: 100 }),
           rating: num(values, 'rating', 'Rating', { min: 1, max: 5, integer: true }),
           comment: text(values, 'comment', 'Comment', { max: 1000 }),
           status: choice(values, 'status', 'Status', reviewStatuses),
-          updatedAt: now,
         }
-        if (id) await db.update(t.reviews).set(data).where(eq(t.reviews.id, numericId(id)))
-        else await db.insert(t.reviews).values(data)
+        upsert(store.reviews, id ? numericId(id) : null, data, () => nextId(store.reviews))
         break
       }
       case 'testimonials': {
@@ -186,10 +173,8 @@ export async function saveRecord(resource: string, id: string | number | null, v
           rating: num(values, 'rating', 'Rating', { min: 1, max: 5, integer: true }),
           featured: bool(values, 'featured'),
           sortOrder: num(values, 'sortOrder', 'Sort order', { max: 1000, integer: true }),
-          updatedAt: now,
         }
-        if (id) await db.update(t.testimonials).set(data).where(eq(t.testimonials.id, numericId(id)))
-        else await db.insert(t.testimonials).values(data)
+        upsert(store.testimonials, id ? numericId(id) : null, data, () => nextId(store.testimonials))
         break
       }
     }
@@ -210,31 +195,31 @@ export async function deleteRecord(resource: string, id: string | number): Promi
     switch (resource) {
       case 'courses': {
         const courseId = String(id)
-        await db.delete(t.courses).where(eq(t.courses.id, courseId))
-        await db.delete(t.reviews).where(eq(t.reviews.courseId, courseId))
-        await db.update(t.bundles).set({ courseIds: sql`array_remove(${t.bundles.courseIds}, ${courseId})` })
+        removeById(store.courses, courseId)
+        store.reviews = store.reviews.filter((review) => review.courseId !== courseId)
+        for (const bundle of store.bundles) bundle.courseIds = bundle.courseIds.filter((item) => item !== courseId)
         break
       }
       case 'categories': {
-        const [usage] = await db.select({ n: sql<number>`count(*)::int` }).from(t.courses).where(eq(t.courses.categoryId, String(id)))
-        if (usage.n > 0) throw new ValidationError(`This category still has ${usage.n} course${usage.n === 1 ? '' : 's'}. Move or delete them first.`)
-        await db.delete(t.categories).where(eq(t.categories.id, String(id)))
+        const usage = store.courses.filter((course) => course.categoryId === String(id)).length
+        if (usage > 0) throw new ValidationError(`This category still has ${usage} course${usage === 1 ? '' : 's'}. Move or delete them first.`)
+        removeById(store.categories, String(id))
         break
       }
       case 'bundles':
-        await db.delete(t.bundles).where(eq(t.bundles.id, numericId(id)))
+        removeById(store.bundles, numericId(id))
         break
       case 'premium':
-        await db.delete(t.premiumPlans).where(eq(t.premiumPlans.id, numericId(id)))
+        removeById(store.premiumPlans, numericId(id))
         break
       case 'orders':
-        await db.delete(t.orders).where(eq(t.orders.id, numericId(id)))
+        removeById(store.orders, numericId(id))
         break
       case 'reviews':
-        await db.delete(t.reviews).where(eq(t.reviews.id, numericId(id)))
+        removeById(store.reviews, numericId(id))
         break
       case 'testimonials':
-        await db.delete(t.testimonials).where(eq(t.testimonials.id, numericId(id)))
+        removeById(store.testimonials, numericId(id))
         break
     }
 
