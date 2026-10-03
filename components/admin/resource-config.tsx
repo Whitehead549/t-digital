@@ -178,7 +178,7 @@ export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
       { name: 'status', label: 'Status', type: 'select', options: orderStatuses },
     ],
     columns: [
-      { label: 'Order', render: (row) => <b>#{String(row.id).padStart(4, '0')}</b> },
+      { label: 'Order', render: (row) => <span className="admin-mono">#{String(row.id).padStart(4, '0')}</span> },
       { label: 'Customer', render: (row) => <span className="admin-course-cell"><span><b>{row.customerName}</b><small>{row.customerEmail}</small></span></span> },
       { label: 'Item', render: (row) => <span className="admin-course-cell"><span><b className="admin-clamp">{row.itemName}</b><small>{label(String(row.itemType))}</small></span></span> },
       { label: 'Amount', render: (row) => <b>{money(row.amount)}</b> },

@@ -2,37 +2,65 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Archive, BookOpen, ChevronLeft, Crown, FolderTree, LayoutDashboard, MessageSquareQuote, ShoppingBag, Star } from 'lucide-react'
+import { ArrowUpRight, X } from 'lucide-react'
+import { adminNavGroups } from '@/components/admin/nav-items'
 
-const navItems = [
-  { label: 'Overview', href: '/admin', icon: LayoutDashboard },
-  { label: 'Courses', href: '/admin/courses', icon: BookOpen },
-  { label: 'Categories', href: '/admin/categories', icon: FolderTree },
-  { label: 'Bundles', href: '/admin/bundles', icon: Archive },
-  { label: 'Premium', href: '/admin/premium', icon: Crown },
-  { label: 'Orders', href: '/admin/orders', icon: ShoppingBag },
-  { label: 'Reviews', href: '/admin/reviews', icon: Star },
-  { label: 'Testimonials', href: '/admin/testimonials', icon: MessageSquareQuote },
-]
+type Props = { open: boolean; onClose: () => void }
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ open, onClose }: Props) {
   const pathname = usePathname()
 
   return (
-    <aside className="admin-sidebar">
-      <Link href="/admin" className="admin-brand"><span className="admin-brand-mark">T</span><span>TORVAN <b>ADMIN</b></span></Link>
-      <p className="admin-sidebar-label">Workspace</p>
-      <nav aria-label="Admin navigation" className="admin-nav">
-        {navItems.map(({ label, href, icon: Icon }) => {
-          const active = href === '/admin' ? pathname === href : pathname.startsWith(href)
-          return (
-            <Link className={active ? 'active' : ''} href={href} key={href} aria-current={active ? 'page' : undefined}>
-              <Icon size={16} aria-hidden="true" /><span>{label}</span>{active && <i />}
-            </Link>
-          )
-        })}
+    <aside className={`admin-sidebar${open ? ' open' : ''}`} id="admin-sidebar">
+      <div className="admin-sidebar-head">
+        <Link href="/admin" className="admin-brand" onClick={onClose}>
+          <span className="admin-brand-mark" aria-hidden="true">T</span>
+          <span className="admin-brand-text">
+            TORVAN<b>Admin console</b>
+          </span>
+        </Link>
+        <button type="button" className="admin-sidebar-close" aria-label="Close navigation" onClick={onClose}>
+          <X size={18} />
+        </button>
+      </div>
+
+      <nav aria-label="Admin navigation" className="admin-nav-scroll">
+        {adminNavGroups.map((group) => (
+          <div className="admin-nav-group" key={group.label}>
+            <p className="admin-sidebar-label">{group.label}</p>
+            <ul className="admin-nav">
+              {group.items.map(({ label, href, icon: Icon }) => {
+                const active = href === '/admin' ? pathname === href : pathname.startsWith(href)
+                return (
+                  <li key={href}>
+                    <Link className={active ? 'active' : undefined} href={href} aria-current={active ? 'page' : undefined} onClick={onClose}>
+                      <Icon size={17} aria-hidden="true" />
+                      <span>{label}</span>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
-      <div className="admin-sidebar-bottom"><Link href="/"><ChevronLeft size={16} aria-hidden="true" /> Back to site</Link></div>
+
+      <div className="admin-sidebar-bottom">
+        <Link href="/" className="admin-site-link">
+          <span>
+            <b>Visit storefront</b>
+            <small>See changes live</small>
+          </span>
+          <ArrowUpRight size={16} aria-hidden="true" />
+        </Link>
+        <div className="admin-user">
+          <span className="admin-avatar" aria-hidden="true">AD</span>
+          <span>
+            <b>Admin</b>
+            <small>Super admin</small>
+          </span>
+        </div>
+      </div>
     </aside>
   )
 }
