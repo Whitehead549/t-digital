@@ -10,6 +10,7 @@ import {
   planSuffixes,
   publishStatuses,
   reviewStatuses,
+  type VideoAsset,
 } from '@/lib/admin/resources'
 
 type Values = Record<string, unknown>
@@ -42,6 +43,30 @@ function choice<T extends string>(values: Values, key: string, label: string, op
 const bool = (values: Values, key: string) => values[key] === true
 const list = (values: Values, key: string) => (Array.isArray(values[key]) ? (values[key] as unknown[]).filter((item): item is string => typeof item === 'string').slice(0, 30) : [])
 const money = (value: number) => Math.round(value * 100) / 100
+
+const safeUrl = (value: unknown, max: number) => {
+  if (typeof value !== 'string' || value.length > max) return ''
+  return /^(blob:|https?:\/\/|\/|data:image\/)/.test(value) ? value : ''
+}
+
+function videos(values: Values): VideoAsset[] {
+  if (!Array.isArray(values.videos)) return []
+  return values.videos.slice(0, 50).flatMap((raw): VideoAsset[] => {
+    if (!raw || typeof raw !== 'object') return []
+    const item = raw as Record<string, unknown>
+    const url = safeUrl(item.url, 2000)
+    if (!url) return []
+    return [{
+      id: typeof item.id === 'string' ? item.id.slice(0, 60) : crypto.randomUUID(),
+      title: (typeof item.title === 'string' ? item.title.trim() : '').slice(0, 160) || 'Untitled video',
+      fileName: (typeof item.fileName === 'string' ? item.fileName : '').slice(0, 200),
+      size: Number.isFinite(Number(item.size)) ? Math.max(0, Number(item.size)) : 0,
+      duration: Number.isFinite(Number(item.duration)) ? Math.max(0, Number(item.duration)) : 0,
+      url,
+      thumbnail: safeUrl(item.thumbnail, 200000),
+    }]
+  })
+}
 
 function uniqueId(rows: { id: string }[], base: string) {
   const root = toSlug(base) || 'item'
@@ -92,7 +117,8 @@ export async function saveRecord(resource: string, id: string | number | null, v
           oldPrice: money(num(values, 'oldPrice', 'Original price')),
           rating: Math.round(num(values, 'rating', 'Rating', { max: 5 }) * 10) / 10,
           students: num(values, 'students', 'Students', { max: 10000000, integer: true }),
-          image: text(values, 'image', 'Thumbnail URL', { max: 1000, required: false }),
+          image: safeUrl(text(values, 'image', 'Thumbnail', { max: 200000, required: false }), 200000),
+          videos: videos(values),
           tone: choice(values, 'tone', 'Tone', courseTones),
           status: choice(values, 'status', 'Status', publishStatuses),
         }
@@ -103,7 +129,8 @@ export async function saveRecord(resource: string, id: string | number | null, v
         const data = {
           name: text(values, 'name', 'Name', { max: 80 }),
           description: text(values, 'description', 'Description', { max: 300, required: false }),
-          image: text(values, 'image', 'Image URL', { max: 1000, required: false }) || '/images/hero-learner.png',
+          image: safeUrl(text(values, 'image', 'Image', { max: 200000, required: false }), 200000) || '/images/hero-learner.png',
+          videos: videos(values),
           sortOrder: num(values, 'sortOrder', 'Sort order', { max: 1000, integer: true }),
         }
         upsert(store.categories, id ? String(id) : null, data, () => uniqueId(store.categories, data.name))
@@ -118,6 +145,8 @@ export async function saveRecord(resource: string, id: string | number | null, v
           price: money(num(values, 'price', 'Price')),
           oldPrice: money(num(values, 'oldPrice', 'Original price')),
           courseIds,
+          image: safeUrl(text(values, 'image', 'Thumbnail', { max: 200000, required: false }), 200000),
+          videos: videos(values),
           status: choice(values, 'status', 'Status', publishStatuses),
           sortOrder: num(values, 'sortOrder', 'Sort order', { max: 1000, integer: true }),
         }
@@ -133,6 +162,8 @@ export async function saveRecord(resource: string, id: string | number | null, v
           note: text(values, 'note', 'Badge note', { max: 40, required: false }),
           featured: bool(values, 'featured'),
           active: bool(values, 'active'),
+          image: safeUrl(text(values, 'image', 'Thumbnail', { max: 200000, required: false }), 200000),
+          videos: videos(values),
           sortOrder: num(values, 'sortOrder', 'Sort order', { max: 1000, integer: true }),
         }
         upsert(store.premiumPlans, id ? numericId(id) : null, data, () => nextId(store.premiumPlans))
@@ -158,6 +189,7 @@ export async function saveRecord(resource: string, id: string | number | null, v
         const data = {
           courseId,
           reviewerName: text(values, 'reviewerName', 'Reviewer name', { max: 100 }),
+          avatar: safeUrl(text(values, 'avatar', 'Profile picture', { max: 200000, required: false }), 200000),
           rating: num(values, 'rating', 'Rating', { min: 1, max: 5, integer: true }),
           comment: text(values, 'comment', 'Comment', { max: 1000 }),
           status: choice(values, 'status', 'Status', reviewStatuses),
@@ -169,6 +201,7 @@ export async function saveRecord(resource: string, id: string | number | null, v
         const data = {
           name: text(values, 'name', 'Name', { max: 100 }),
           role: text(values, 'role', 'Role', { max: 100, required: false }),
+          avatar: safeUrl(text(values, 'avatar', 'Profile picture', { max: 200000, required: false }), 200000),
           quote: text(values, 'quote', 'Quote', { max: 600 }),
           rating: num(values, 'rating', 'Rating', { min: 1, max: 5, integer: true }),
           featured: bool(values, 'featured'),

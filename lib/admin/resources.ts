@@ -6,6 +6,10 @@ export function isResourceKey(value: string): value is ResourceKey {
 }
 
 export type AdminRow = Record<string, string | number | boolean | string[] | null> & { id: string | number }
+export type VideoAsset = { id: string; title: string; fileName: string; size: number; duration: number; url: string; thumbnail: string }
+export const mediaResources: readonly ResourceKey[] = ['courses', 'categories', 'bundles', 'premium']
+export const getVideos = (row: AdminRow | Record<string, unknown>): VideoAsset[] => (Array.isArray(row.videos) ? (row.videos as unknown as VideoAsset[]) : [])
+
 export type SelectOption = { value: string; label: string }
 export type ResourceOptions = { categories: SelectOption[]; courses: SelectOption[] }
 

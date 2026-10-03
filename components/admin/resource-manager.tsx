@@ -1,14 +1,15 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
-import { AlertTriangle, Check, Edit3, Inbox, Plus, RotateCcw, Search, Trash2, X } from 'lucide-react'
+import { useCallback, useMemo, useState, useTransition } from 'react'
+import { AlertTriangle, Check, Edit3, ImagePlus, Inbox, Plus, RotateCcw, Search, Trash2, UploadCloud, UserRoundPen, X } from 'lucide-react'
 import { deleteRecord, saveRecord } from '@/app/admin/actions'
-import type { AdminRow, ResourceKey, ResourceOptions } from '@/lib/admin/resources'
+import { getVideos, mediaResources, type AdminRow, type ResourceKey, type ResourceOptions, type VideoAsset } from '@/lib/admin/resources'
 import { resourceConfigs, type FieldConfig } from '@/components/admin/resource-config'
+import { ImageUpload, VideoUpload } from '@/components/admin/media-upload'
 import { adminNavItems } from '@/components/admin/nav-items'
 
 type Props = { resource: ResourceKey; rows: AdminRow[]; options: ResourceOptions }
-type Editing = { id: string | number | null; values: Record<string, unknown> }
+type Editing = { id: string | number | null; values: Record<string, unknown>; focus?: 'videos' | 'avatar' }
 
 const rowName = (row: AdminRow) => String(row.title ?? row.name ?? row.reviewerName ?? row.customerName ?? `#${row.id}`)
 
@@ -22,6 +23,10 @@ export default function ResourceManager({ resource, rows, options }: Props) {
   const [formError, setFormError] = useState('')
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [uploading, setUploading] = useState(false)
+  const hasMedia = mediaResources.includes(resource)
+  const mediaFields = config.fields.filter((field) => field.type === 'image' || field.type === 'videos')
+  const hasAvatar = config.fields.some((field) => field.variant === 'avatar')
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -53,17 +58,25 @@ export default function ResourceManager({ resource, rows, options }: Props) {
     setEditing({ id: null, values: defaults })
   }
 
-  const openEdit = (row: AdminRow) => {
+  const openEdit = (row: AdminRow, focus?: Editing['focus']) => {
     const values: Record<string, unknown> = {}
-    for (const field of config.fields) values[field.name] = row[field.name]
+    for (const field of config.fields) values[field.name] = field.type === 'videos' ? getVideos(row) : row[field.name]
     setFormError('')
-    setEditing({ id: row.id, values })
+    setUploading(false)
+    setEditing({ id: row.id, values, focus })
+  }
+
+  const closeEditor = () => {
+    if (uploading && !window.confirm('Videos are still uploading. Discard them and close?')) return
+    setUploading(false)
+    setEditing(null)
   }
 
   const setValue = (name: string, value: unknown) => setEditing((current) => (current ? { ...current, values: { ...current.values, [name]: value } } : current))
 
   const submit = () => {
     if (!editing) return
+    if (uploading) return setFormError('Please wait for video uploads to finish before saving.')
     startTransition(async () => {
       const result = await saveRecord(resource, editing.id, editing.values)
       if (!result.ok) return setFormError(result.error)
@@ -137,6 +150,15 @@ export default function ResourceManager({ resource, rows, options }: Props) {
                   {config.columns.map((column) => <td key={column.label}>{column.render(row, { options })}</td>)}
                   <td>
                     <div className="admin-actions">
+                      {hasMedia && (
+                        <>
+                          <button type="button" className="media-action" aria-label={`Upload videos for ${rowName(row)}`} title="Upload videos" onClick={(event) => { event.stopPropagation(); openEdit(row, 'videos') }}><UploadCloud size={15} /></button>
+                          <button type="button" className="media-action" aria-label={`Change thumbnail for ${rowName(row)}`} title="Change thumbnail" onClick={(event) => { event.stopPropagation(); openEdit(row) }}><ImagePlus size={15} /></button>
+                        </>
+                      )}
+                      {hasAvatar && (
+                        <button type="button" className="media-action" aria-label={`Change profile picture for ${rowName(row)}`} title="Change profile picture" onClick={(event) => { event.stopPropagation(); openEdit(row, 'avatar') }}><UserRoundPen size={15} /></button>
+                      )}
                       <button type="button" aria-label={`Edit ${rowName(row)}`} title="Edit" onClick={(event) => { event.stopPropagation(); openEdit(row) }}><Edit3 size={15} /></button>
                       <button type="button" className="delete-action" aria-label={`Delete ${rowName(row)}`} title="Delete" disabled={isPending} onClick={(event) => { event.stopPropagation(); setConfirming(row) }}><Trash2 size={15} /></button>
                     </div>
@@ -172,27 +194,46 @@ export default function ResourceManager({ resource, rows, options }: Props) {
       )}
 
       {editing && (
-        <div className="admin-modal-backdrop" role="presentation" onClick={(event) => { if (event.target === event.currentTarget && !isPending) setEditing(null) }}>
-          <form className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title" onSubmit={(event) => { event.preventDefault(); submit() }}>
+        <div className="admin-modal-backdrop" role="presentation" onClick={(event) => { if (event.target === event.currentTarget && !isPending) closeEditor() }}>
+          <form className={`admin-modal${hasMedia ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby="admin-modal-title" onSubmit={(event) => { event.preventDefault(); submit() }}>
             <div className="admin-modal-head">
               <span className="admin-page-icon small"><Icon size={18} aria-hidden="true" /></span>
               <div>
                 <p className="admin-overline">{editing.id ? `Edit ${config.singular}` : `New ${config.singular}`}</p>
                 <h2 id="admin-modal-title">{editing.id ? `Update ${config.singular} details` : `Add a new ${config.singular}`}</h2>
               </div>
-              <button className="admin-modal-close" type="button" aria-label="Close" onClick={() => setEditing(null)}><X size={18} /></button>
+              <button className="admin-modal-close" type="button" aria-label="Close" onClick={closeEditor}><X size={18} /></button>
             </div>
             <div className="admin-modal-body">
               <div className="admin-form-grid">
-                {config.fields.map((field) => (
+                {config.fields.filter((field) => field.type !== 'image' && field.type !== 'videos').map((field) => (
                   <FieldInput key={field.name} field={field} value={editing.values[field.name]} options={options} onChange={(value) => setValue(field.name, value)} />
                 ))}
               </div>
+              {mediaFields.length > 0 && (
+                <section className="admin-media-section" aria-labelledby="admin-media-title">
+                  <div className="admin-media-section-head">
+                    <h3 id="admin-media-title">{hasAvatar ? 'Profile picture' : 'Media'}</h3>
+                    <p>{hasAvatar ? `Photo shown alongside this ${config.singular}.` : `Thumbnail and videos for this ${config.singular}.`}</p>
+                  </div>
+                  {mediaFields.map((field) => (
+                    <MediaInput
+                      key={field.name}
+                      field={field}
+                      value={editing.values[field.name]}
+                      autoFocus={editing.focus === field.type || editing.focus === field.variant}
+                      onChange={(value) => setValue(field.name, value)}
+                      onUploadingChange={setUploading}
+                    />
+                  ))}
+                </section>
+              )}
               {formError && <p className="admin-form-error" role="alert"><AlertTriangle size={15} aria-hidden="true" /> {formError}</p>}
             </div>
             <div className="admin-modal-actions">
-              <button type="button" className="admin-secondary" onClick={() => setEditing(null)} disabled={isPending}>Cancel</button>
-              <button className="admin-primary" type="submit" disabled={isPending}>{isPending ? 'Saving…' : `Save ${config.singular}`}</button>
+              {uploading && <span className="admin-uploading-note" role="status"><UploadCloud size={14} aria-hidden="true" /> Uploading videos…</span>}
+              <button type="button" className="admin-secondary" onClick={closeEditor} disabled={isPending}>Cancel</button>
+              <button className="admin-primary" type="submit" disabled={isPending || uploading}>{isPending ? 'Saving…' : uploading ? 'Waiting for uploads…' : `Save ${config.singular}`}</button>
             </div>
           </form>
         </div>
@@ -216,6 +257,22 @@ export default function ResourceManager({ resource, rows, options }: Props) {
         </div>
       )}
     </div>
+  )
+}
+
+function MediaInput({ field, value, autoFocus, onChange, onUploadingChange }: { field: FieldConfig; value: unknown; autoFocus: boolean; onChange: (value: unknown) => void; onUploadingChange: (uploading: boolean) => void }) {
+  const handleUploading = useCallback((state: boolean) => onUploadingChange(state), [onUploadingChange])
+  if (field.type === 'image') return <ImageUpload name={field.name} label={field.label} hint={field.hint} variant={field.variant} autoFocus={autoFocus} value={String(value ?? '')} onChange={onChange} />
+  return (
+    <VideoUpload
+      name={field.name}
+      label={field.label}
+      hint={field.hint}
+      value={Array.isArray(value) ? (value as VideoAsset[]) : []}
+      onChange={onChange}
+      onUploadingChange={handleUploading}
+      autoFocus={autoFocus}
+    />
   )
 }
 

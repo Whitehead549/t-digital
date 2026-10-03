@@ -5,19 +5,22 @@ const iso = (date: Date) => date.toISOString()
 const byNewest = (a: { createdAt: Date }, b: { createdAt: Date }) => b.createdAt.getTime() - a.createdAt.getTime()
 const bySortOrder = (a: { sortOrder: number }, b: { sortOrder: number }) => a.sortOrder - b.sortOrder
 const withDates = <T extends { createdAt: Date; updatedAt: Date }>(row: T) => ({ ...row, createdAt: iso(row.createdAt), updatedAt: iso(row.updatedAt) })
+// Records created before media support was added (kept alive on globalThis) may lack these fields.
+const withMedia = <T extends { image?: string; videos?: unknown[] }>(row: T) =>
+  ({ ...row, image: row.image ?? '', videos: Array.isArray(row.videos) ? row.videos.map((video) => ({ ...(video as object) })) : [] }) as unknown as AdminRow
 
 export async function getAdminRows(resource: ResourceKey): Promise<AdminRow[]> {
   switch (resource) {
     case 'courses':
-      return [...store.courses].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()).map(withDates)
+      return [...store.courses].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()).map((row) => withMedia(withDates(row)))
     case 'categories':
       return [...store.categories]
         .sort((a, b) => bySortOrder(a, b) || a.name.localeCompare(b.name))
-        .map((row) => ({ ...withDates(row), courseCount: store.courses.filter((course) => course.categoryId === row.id).length }))
+        .map((row) => withMedia({ ...withDates(row), courseCount: store.courses.filter((course) => course.categoryId === row.id).length }))
     case 'bundles':
-      return [...store.bundles].sort((a, b) => bySortOrder(a, b) || a.id - b.id).map((row) => ({ ...withDates(row), courseIds: [...row.courseIds] }))
+      return [...store.bundles].sort((a, b) => bySortOrder(a, b) || a.id - b.id).map((row) => withMedia({ ...withDates(row), courseIds: [...row.courseIds] }))
     case 'premium':
-      return [...store.premiumPlans].sort((a, b) => bySortOrder(a, b) || a.id - b.id).map(withDates)
+      return [...store.premiumPlans].sort((a, b) => bySortOrder(a, b) || a.id - b.id).map((row) => withMedia(withDates(row)))
     case 'orders':
       return [...store.orders].sort(byNewest).map(withDates)
     case 'reviews':
