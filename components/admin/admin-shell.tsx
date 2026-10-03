@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ChevronRight, ExternalLink, Menu } from 'lucide-react'
 import AdminSidebar from '@/components/admin/admin-sidebar'
-import { findNavItem } from '@/components/admin/nav-items'
+import { findNavItem } from '@/lib/admin/navigation'
 
 export default function AdminShell({ children, className }: { children: ReactNode; className?: string }) {
   const [open, setOpen] = useState(false)

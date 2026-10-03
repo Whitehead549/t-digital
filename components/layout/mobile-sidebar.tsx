@@ -5,6 +5,7 @@ import { ChevronRight, X } from 'lucide-react'
 import { siteContent } from '@/lib/data/categories'
 import { authLinks, isNavLinkActive, primaryNavLinks } from '@/lib/data/navigation'
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock'
+import { useEscapeKey } from '@/hooks/use-escape-key'
 
 type MobileSidebarProps = {
   id: string
@@ -16,16 +17,11 @@ type MobileSidebarProps = {
 export default function MobileSidebar({ id, open, pathname, onClose }: MobileSidebarProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   useBodyScrollLock(open)
+  useEscapeKey(open, onClose)
 
   useEffect(() => {
-    if (!open) return
-    closeButtonRef.current?.focus()
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [open, onClose])
+    if (open) closeButtonRef.current?.focus()
+  }, [open])
 
   return (
     <div className="mobile-nav" data-state={open ? 'open' : 'closed'} inert={!open}>

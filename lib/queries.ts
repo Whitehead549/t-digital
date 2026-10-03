@@ -41,7 +41,7 @@ export async function getCourseById(courseId: string) {
 export async function getStudentCertificates(email: string): Promise<Certificate[]> {
   const owner = email.trim().toLowerCase()
   return store.certificates
-    .filter((row) => row.status === 'issued' && row.studentEmail.toLowerCase() === owner)
+    .filter((row) => row.status === 'issued' && Boolean(row.image) && row.studentEmail.toLowerCase() === owner)
     .sort((a, b) => b.issuedOn.localeCompare(a.issuedOn))
     .map((row) => ({
       id: row.code,

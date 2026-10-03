@@ -1,19 +1,15 @@
 import { useEffect, type RefObject } from 'react'
+import { useEscapeKey } from '@/hooks/use-escape-key'
 
 export function useDismissable(ref: RefObject<HTMLElement | null>, open: boolean, onClose: () => void) {
+  useEscapeKey(open, onClose)
+
   useEffect(() => {
     if (!open) return
     const handlePointer = (event: MouseEvent) => {
       if (ref.current && !ref.current.contains(event.target as Node)) onClose()
     }
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
     document.addEventListener('mousedown', handlePointer)
-    document.addEventListener('keydown', handleKey)
-    return () => {
-      document.removeEventListener('mousedown', handlePointer)
-      document.removeEventListener('keydown', handleKey)
-    }
+    return () => document.removeEventListener('mousedown', handlePointer)
   }, [ref, open, onClose])
 }

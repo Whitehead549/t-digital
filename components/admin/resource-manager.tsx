@@ -6,7 +6,7 @@ import { deleteRecord, saveRecord } from '@/app/admin/actions'
 import { getVideos, mediaResources, type AdminRow, type ResourceKey, type ResourceOptions, type VideoAsset } from '@/lib/admin/resources'
 import { resourceConfigs, type FieldConfig } from '@/components/admin/resource-config'
 import { ImageUpload, VideoUpload } from '@/components/admin/media-upload'
-import { adminNavItems } from '@/components/admin/nav-items'
+import { adminNavItems } from '@/lib/admin/navigation'
 
 type Props = { resource: ResourceKey; rows: AdminRow[]; options: ResourceOptions }
 type Editing = { id: string | number | null; values: Record<string, unknown>; focus?: 'videos' | 'avatar' }

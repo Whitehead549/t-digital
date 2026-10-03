@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import CourseCard from '@/Card/CourseCard'
+import CourseCard from '@/components/cards/course-card'
 import { courses } from '@/lib/data/courses'
 
 const bundles = [

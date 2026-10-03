@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Search } from 'lucide-react'
-import CourseCard from '@/Card/CourseCard'
+import CourseCard from '@/components/cards/course-card'
 import { courses } from '@/lib/data/courses'
 
 export default function CoursesPage() {

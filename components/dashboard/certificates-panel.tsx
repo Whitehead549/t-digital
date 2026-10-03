@@ -1,18 +1,60 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Award, BadgeCheck, Eye, X } from 'lucide-react'
-import { student, type Certificate } from '@/lib/data/dashboard'
+import { Award, Download, LoaderCircle, X } from 'lucide-react'
+import type { Certificate } from '@/lib/data/dashboard'
 
-function CertificateArt({ course, large = false }: { course: string; large?: boolean }) {
+const extensionFor = (mime: string) => ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' })[mime] ?? 'png'
+
+function fileNameFor(cert: Certificate, mime: string) {
+  const slug = cert.course.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60)
+  return `TORVAN-Certificate-${cert.id}${slug ? `-${slug}` : ''}.${extensionFor(mime)}`
+}
+
+function triggerDownload(href: string, fileName: string) {
+  const link = document.createElement('a')
+  link.href = href
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
+
+async function downloadCertificate(cert: Certificate) {
+  const image = cert.image
+  if (!image) return
+  if (image.startsWith('data:')) {
+    const mime = image.slice(5, image.indexOf(';'))
+    return triggerDownload(image, fileNameFor(cert, mime))
+  }
+  try {
+    const response = await fetch(image)
+    if (!response.ok) throw new Error(`Download failed with ${response.status}`)
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    triggerDownload(url, fileNameFor(cert, blob.type))
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  } catch {
+    // Cross-origin images without CORS cannot be fetched; opening them lets the student save it manually.
+    window.open(image, '_blank', 'noopener,noreferrer')
+  }
+}
+
+function DownloadButton({ cert, className = 'sd-primary-btn' }: { cert: Certificate; className?: string }) {
+  const [downloading, setDownloading] = useState(false)
+  const handleDownload = async () => {
+    setDownloading(true)
+    try {
+      await downloadCertificate(cert)
+    } finally {
+      setDownloading(false)
+    }
+  }
   return (
-    <div className={`sd-cert-art ${large ? 'is-lg' : ''}`} aria-hidden="true">
-      <span className="sd-cert-brand">TORVAN<i>.</i></span>
-      <small>Certificate of Completion</small>
-      {large && <em>{student.fullName}</em>}
-      <strong>{course}</strong>
-      <span className="sd-cert-seal"><Award size={large ? 22 : 14} /></span>
-    </div>
+    <button type="button" className={className} onClick={handleDownload} disabled={downloading} aria-label={`Download certificate for ${cert.course}`}>
+      {downloading ? <LoaderCircle size={16} className="sd-spin" aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}
+      {downloading ? 'Preparing…' : 'Download'}
+    </button>
   )
 }
 
@@ -27,64 +69,45 @@ export default function CertificatesPanel({ certificates }: { certificates: Cert
     if (!selected && dialog.open) dialog.close()
   }, [selected])
 
-  return (
-    <section className="sd-card sd-certs" id="certificates" aria-labelledby="certs-title">
-      <div className="sd-card-head">
-        <div>
-          <p className="sd-eyebrow">Achievements</p>
-          <h2 id="certs-title">Certificates</h2>
-        </div>
-        {certificates.length > 0 && <span className="sd-count-pill">{certificates.length} earned</span>}
-      </div>
-
-      {certificates.length === 0 ? (
+  if (certificates.length === 0) {
+    return (
+      <section className="sd-card sd-certs" id="certificates" aria-label="Certificates">
         <div className="sd-empty">
           <span className="sd-empty-icon"><Award size={24} aria-hidden="true" /></span>
           <strong>No certificates yet</strong>
-          <p>Finish your first course to earn a verified certificate you can share with employers.</p>
-          <a href="/dashboard/courses" className="sd-primary-btn">Keep learning</a>
+          <p>When the TORVAN team issues your certificate, it will appear here for you to download.</p>
         </div>
-      ) : (
-        <ul className="sd-cert-list">
-          {certificates.map((cert) => (
-            <li key={cert.id}>
-              <button type="button" className="sd-cert" onClick={() => setSelected(cert)} aria-label={`View certificate for ${cert.course}`}>
-                <CertificateArt course={cert.course} />
-                <span className="sd-cert-info">
-                  <strong>{cert.course}</strong>
-                  <span>Completed {cert.completedOn}</span>
-                  <span className="sd-cert-id">ID {cert.id}</span>
-                </span>
-                <span className="sd-cert-side">
-                  {cert.verified && <span className="sd-verified"><BadgeCheck size={13} aria-hidden="true" /> Verified</span>}
-                  <span className="sd-cert-view"><Eye size={14} aria-hidden="true" /> View Certificate</span>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      </section>
+    )
+  }
 
-      <dialog ref={dialogRef} className="sd-dialog" onClose={() => setSelected(null)} aria-labelledby="cert-dialog-title">
+  return (
+    <section className="sd-certs-grid" id="certificates" aria-label="Certificates">
+      {certificates.map((cert) => (
+        <article key={cert.id} className="sd-cert-card">
+          <button type="button" className="sd-cert-card-img" onClick={() => setSelected(cert)} aria-label={`Enlarge certificate for ${cert.course}`}>
+            <img src={cert.image} alt={`Certificate for ${cert.course}`} loading="lazy" />
+          </button>
+          <div className="sd-cert-card-foot">
+            <div className="sd-cert-card-info">
+              <strong>{cert.course}</strong>
+              <span>Issued {cert.completedOn}</span>
+            </div>
+            <DownloadButton cert={cert} />
+          </div>
+        </article>
+      ))}
+
+      <dialog ref={dialogRef} className="sd-dialog sd-cert-dialog" onClose={() => setSelected(null)} aria-label={selected ? `Certificate for ${selected.course}` : 'Certificate'}>
         {selected && (
           <div className="sd-dialog-inner">
-            <div className="sd-dialog-head">
-              <div>
-                <p className="sd-eyebrow">Certificate preview</p>
-                <h2 id="cert-dialog-title">{selected.course}</h2>
-              </div>
-              <button type="button" className="sd-icon-btn" aria-label="Close certificate preview" onClick={() => setSelected(null)}>
-                <X size={18} aria-hidden="true" />
-              </button>
+            <button type="button" className="sd-icon-btn sd-cert-dialog-close" aria-label="Close" onClick={() => setSelected(null)}>
+              <X size={18} aria-hidden="true" />
+            </button>
+            <img className="sd-cert-dialog-img" src={selected.image} alt={`Certificate for ${selected.course}`} />
+            <div className="sd-dialog-actions">
+              <DownloadButton cert={selected} />
             </div>
-            <CertificateArt course={selected.course} large />
-            <dl className="sd-dialog-meta">
-              <div><dt>Issued to</dt><dd>{student.fullName}</dd></div>
-              <div><dt>Instructor</dt><dd>{selected.instructor}</dd></div>
-              <div><dt>Completed</dt><dd>{selected.completedOn}</dd></div>
-              <div><dt>Certificate ID</dt><dd>{selected.id}</dd></div>
-            </dl>
-            {selected.verified && <p className="sd-verified is-lg"><BadgeCheck size={15} aria-hidden="true" /> This certificate is verified by TORVAN</p>}
           </div>
         )}
       </dialog>

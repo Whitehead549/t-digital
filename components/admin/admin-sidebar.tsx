@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ArrowUpRight, X } from 'lucide-react'
-import { adminNavGroups } from '@/components/admin/nav-items'
+import { adminNavGroups } from '@/lib/admin/navigation'
 
 type Props = { open: boolean; onClose: () => void }
 

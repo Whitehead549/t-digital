@@ -19,6 +19,8 @@ export type ActionResult = { ok: true } | { ok: false; error: string }
 
 class ValidationError extends Error {}
 
+const CERTIFICATE_IMAGE_MAX = 7_000_000
+
 function text(values: Values, key: string, label: string, { max = 300, required = true } = {}) {
   const value = typeof values[key] === 'string' ? (values[key] as string).trim() : ''
   if (required && !value) throw new ValidationError(`${label} is required.`)
@@ -189,7 +191,10 @@ export async function saveRecord(resource: string, id: string | number | null, v
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ValidationError('Enter a valid student email.')
         const issuedOn = text(values, 'issuedOn', 'Issue date', { max: 10 })
         if (!/^\d{4}-\d{2}-\d{2}$/.test(issuedOn) || Number.isNaN(Date.parse(issuedOn))) throw new ValidationError('Enter the issue date as YYYY-MM-DD.')
-        const image = safeUrl(text(values, 'image', 'Certificate file', { max: 200000, required: false }), 200000)
+        const rawImage = text(values, 'image', 'Certificate file', { max: CERTIFICATE_IMAGE_MAX, required: false })
+        if (rawImage.startsWith('blob:')) throw new ValidationError('Please re-upload the certificate file.')
+        const image = safeUrl(rawImage, CERTIFICATE_IMAGE_MAX)
+        if (rawImage && !image) throw new ValidationError('Certificate file must be an uploaded image or an image URL.')
         const recordId = id ? numericId(id) : null
         const code = text(values, 'code', 'Certificate ID', { max: 40 }).toUpperCase()
         if (store.certificates.some((cert) => cert.code === code && cert.id !== recordId)) throw new ValidationError('That certificate ID is already in use.')

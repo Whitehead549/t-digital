@@ -28,7 +28,7 @@ export type FieldConfig = {
   max?: number
   half?: boolean
   hint?: string
-  variant?: 'thumbnail' | 'avatar'
+  variant?: 'thumbnail' | 'avatar' | 'document'
 }
 
 export type ColumnConfig = { label: string; render: (row: AdminRow, ctx: RenderContext) => ReactNode }
@@ -242,7 +242,7 @@ export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
       { name: 'code', label: 'Certificate ID', type: 'text', required: true, half: true, hint: 'e.g. TRV-FD-20481' },
       { name: 'issuedOn', label: 'Issue date (YYYY-MM-DD)', type: 'text', required: true, half: true },
       { name: 'status', label: 'Status', type: 'select', options: certificateStatuses, half: true },
-      imageField('Certificate file', 'Upload the certificate as an image (PNG or JPG). Students can view and download it.'),
+      { ...imageField('Certificate file', 'Upload the certificate as an image (PNG or JPG). Students can view and download it from their dashboard.'), variant: 'document' },
     ],
     columns: [
       { label: 'Student', render: (row) => <span className="admin-course-cell"><span><b>{row.studentName}</b><small>{row.studentEmail}</small></span></span> },

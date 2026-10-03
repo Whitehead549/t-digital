@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import CourseCard from '@/Card/CourseCard'
+import CourseCard from '@/components/cards/course-card'
 import { categories, navigation, siteContent } from '@/lib/data/categories'
 import { searchCourses } from '@/lib/data/courses'
 import {

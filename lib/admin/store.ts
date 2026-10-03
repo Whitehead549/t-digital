@@ -144,25 +144,7 @@ function createSeed(): Store {
 }
 
 function seedCertificates(): CertificateRecord[] {
-  return (
-    [
-      ['TRV-FD-20481', 'Frontend Development', 'Qamardeen Abdul', '2026-06-14'],
-      ['TRV-RJ-19302', 'React & Modern JavaScript', 'Qamardeen Abdul', '2026-06-12'],
-      ['TRV-PE-17755', 'Prompt Engineering Masterclass', 'Rifdhat Tolani', '2026-05-28'],
-      ['TRV-FB-15020', 'Start a Profitable Freelancing Business', 'Hammed Oladipo', '2026-04-19'],
-    ] as const
-  ).map(([code, courseTitle, instructor, issuedOn], index) => ({
-    id: index + 1,
-    code,
-    studentName: 'Alex Morgan',
-    studentEmail: 'alex.morgan@torvan.com',
-    courseTitle,
-    instructor,
-    issuedOn,
-    image: '',
-    status: 'issued',
-    ...stamp(5 - index),
-  }))
+  return []
 }
 
 // Kept on globalThis so admin edits survive hot reloads and are shared across requests in the same server process.

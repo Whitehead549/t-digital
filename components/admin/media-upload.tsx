@@ -76,6 +76,35 @@ function Dropzone({ id, accept, multiple, onFiles, icon, title, hint, compact }:
   )
 }
 
+const DOCUMENT_INLINE_BYTES = 1.5 * 1024 * 1024
+const DOCUMENT_MAX_SIDE = 2400
+
+const readAsDataUrl = (file: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+
+// Documents (e.g. certificates) must be viewable by other users, so they are stored as data URLs instead of
+// tab-local blob URLs. Large files are downscaled to keep the saved payload within the server action limit.
+async function encodeDocumentImage(file: File) {
+  if (file.size <= DOCUMENT_INLINE_BYTES) return readAsDataUrl(file)
+  const bitmap = await createImageBitmap(file)
+  const scale = Math.min(1, DOCUMENT_MAX_SIDE / Math.max(bitmap.width, bitmap.height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(bitmap.width * scale)
+  canvas.height = Math.round(bitmap.height * scale)
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('Canvas unavailable')
+  context.fillStyle = '#fff'
+  context.fillRect(0, 0, canvas.width, canvas.height)
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  bitmap.close()
+  return canvas.toDataURL('image/jpeg', 0.9)
+}
+
 export function ImageUpload({
   name,
   label,
@@ -90,7 +119,7 @@ export function ImageUpload({
   hint?: string
   value: string
   onChange: (value: string) => void
-  variant?: 'thumbnail' | 'avatar'
+  variant?: 'thumbnail' | 'avatar' | 'document'
   autoFocus?: boolean
 }) {
   const [error, setError] = useState('')
@@ -104,14 +133,22 @@ export function ImageUpload({
     if (autoFocus) fieldRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
   }, [autoFocus])
 
-  const accept = (files: File[]) => {
+  const isDocument = variant === 'document'
+
+  const accept = async (files: File[]) => {
     const file = files[0]
     if (!file) return
     if (!file.type.startsWith('image/')) return setError('Please choose an image file (PNG, JPG, WebP or GIF).')
     if (file.size > MAX_IMAGE_BYTES) return setError(`Image is ${formatBytes(file.size)}. The maximum is 5 MB.`)
     setError('')
     setFileMeta({ name: file.name, size: file.size })
-    onChange(URL.createObjectURL(file))
+    if (!isDocument) return onChange(URL.createObjectURL(file))
+    try {
+      onChange(await encodeDocumentImage(file))
+    } catch {
+      setFileMeta(null)
+      setError('Could not read that image. Please try a different PNG or JPG file.')
+    }
   }
 
   return (
@@ -128,7 +165,7 @@ export function ImageUpload({
           <img src={value} alt={`${label} preview`} crossOrigin={value.startsWith('http') ? 'anonymous' : undefined} />
           <div className="admin-image-preview-bar">
             <span className="admin-image-preview-meta">
-              <b>{fileMeta?.name ?? (value.startsWith('blob:') ? 'Uploaded image' : value.split('/').pop())}</b>
+              <b>{fileMeta?.name ?? (value.startsWith('blob:') || value.startsWith('data:') ? 'Uploaded image' : value.split('/').pop())}</b>
               {fileMeta && <small>{formatBytes(fileMeta.size)}</small>}
             </span>
             <span className="admin-image-preview-actions">
@@ -144,8 +181,8 @@ export function ImageUpload({
           accept="image/*"
           onFiles={accept}
           icon={isAvatar ? <UserRound size={22} /> : <ImagePlus size={22} />}
-          title={<>Drag & drop a {isAvatar ? 'profile picture' : 'thumbnail'}, or <u>click to upload</u></>}
-          hint={`PNG, JPG, WebP or GIF · ${isAvatar ? 'square' : '16:9'} recommended · up to 5 MB`}
+          title={<>Drag & drop a {isAvatar ? 'profile picture' : isDocument ? 'certificate image' : 'thumbnail'}, or <u>click to upload</u></>}
+          hint={isDocument ? 'PNG or JPG · landscape recommended · up to 5 MB' : `PNG, JPG, WebP or GIF · ${isAvatar ? 'square' : '16:9'} recommended · up to 5 MB`}
         />
       )}
 
